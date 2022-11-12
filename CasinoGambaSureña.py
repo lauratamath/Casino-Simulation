@@ -3,16 +3,71 @@ import pandas as pd
 import plotly.express as px
 from matplotlib import pyplot as plt
 from colorama import Fore, Style
+import json
+
+CELLS = json.load(open('rouletteCells.json'))["cells"]
+BETS = json.load(open('bets.json'))["bets"]
+
+class Roulette():
+    def __init__(self, min_bet = 1, max_bet = 100, max_players = 6):
+        # cells from rouletteCells.json file
+        self.min_bet = min_bet # minimo de apuesta
+        self.max_bet = max_bet # maximo de apuesta
+        self.bets = [] # Registro de todas las apuestas en la ruleta
+        self.max_players = max_players
+        self.current_players = 0
+
+    # Como un jugador decide su apuesta, monto y tipo
+    # TODO: investigar / usar la probabilidad de cada tipo de apuesta
+    def set_bet(self, player_id, arriving_time):
+        bet = {
+            "player_id": player_id,
+            "arriving_time": arriving_time,
+            "amount": np.random.randint(self.min_bet, self.max_bet),
+            "bet": np.random.choice(BETS),
+            "result": None,
+            "win": None,
+            "earnings": None
+        }
+        self.bets.append(bet)
+
+    # Agrega un jugador a la ruleta y su apuesta
+    def add_player_and_bet(self, player_id, arriving_time):
+        if self.current_players < self.max_players:
+            self.current_players += 1
+            self.set_bet(player_id, arriving_time)
+            return True
+        else:
+            return False
+
+    def check_win(self, bet, cell):
+        if cell["position"] in bet["cells"]:
+            return True
+        else:
+            return False
+
+    # Se gira la ruleta, se obtienen los resultados de las apuestas y se limpian los jugadores
+    def spin(self):
+        # Se obtiene un random de la lista CELLS
+        result = np.random.choice(CELLS)
+        # Se resuelven las apuestas
+        for _bet in self.bets:
+            if _bet["result"] is None:
+                _bet["result"] = result
+                _bet["win"] = self.check_win(bet["bet"], result)
+                _bet["earnings"] = _bet["bet"]["payout"] * _bet["amount"] if _bet["win"] else -_bet["amount"]
+        # Se limpian los jugadores
+        self.current_players = 0
 
 class Casino():
 
-    def __init__(self, max_sol = 0.25, roulette = 5, time = 8):
-        self.lambda_max = max_sol  # cantidad máxima de Gamblers por mesa 
+    def __init__(self, average_incidence = 0.25, roulette = 5, time = 8):
+        self.average_incidence = average_incidence  # cantidad máxima de Gamblers por mesa 
         self.roulette = roulette # cantidad de ruletas que tiene el casino
         self.time = time #cantidad de horas de simulacion
-    # Calculo de siguiente llegada
+    # Calculo de siguiente llegada (inverse CDF)
     def next_ts(self, t): # No hace gran cosa, pero existe porque los eventos serán procesos de poisson homogeneos
-        return t - (np.log(np.random.uniform())/self.lambda_max)
+        return t - (np.log(np.random.uniform())/self.average_incidence)
     # Calculo para tiempo
     # ----------------------MODIFICAR PARA PODER CAMBIAR LA CANTIDAD DE TIEMPO DE JUEGO---------------------------
     def get_exponential(self, lamda):
@@ -174,10 +229,14 @@ def show_mult_results(FdSs):
     figure.show()
 
 def main():
-    counter = 6 # Numero de roulette
-
-    # ## Pizzita Computing
-    FdS = Casino(max_sol=0.2, roulette=counter)
+    # Abre el casino Gamba Sureña
+    # Promedio de clientes
+    average_incidence = 0.25
+    # 6 Ruletas en el casino
+    roulette_n = 6
+    # cantidad de horas de simulacion
+    hours = 8
+    FdS = Casino(average_incidence=average_incidence, roulette=roulette_n, time=hours)
     show_results(FdS)
 
     # # Resultados para diferentes valores de roulette
