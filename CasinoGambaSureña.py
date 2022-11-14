@@ -19,9 +19,9 @@ class Roulette():
 
     # Como un jugador decide su apuesta, monto y tipo
     # TODO: investigar / usar la probabilidad de cada tipo de apuesta
-    def set_bet(self, player_id, arriving_time):
+    def set_bet(self, player_no, arriving_time):
         bet = {
-            "player_id": player_id,
+            "player_no": player_no,
             "arriving_time": arriving_time,
             "amount": np.random.randint(self.min_bet, self.max_bet),
             "bet": np.random.choice(BETS),
@@ -31,11 +31,14 @@ class Roulette():
         }
         self.bets.append(bet)
 
+    def check_space(self):
+        return self.current_players < self.max_players
+
     # Agrega un jugador a la ruleta y su apuesta
-    def add_player_and_bet(self, player_id, arriving_time):
+    def add_player_and_bet(self, player_no, arriving_time):
         if self.current_players < self.max_players:
             self.current_players += 1
-            self.set_bet(player_id, arriving_time)
+            self.set_bet(player_no, arriving_time)
             return True
         else:
             return False
@@ -54,16 +57,16 @@ class Roulette():
         for _bet in self.bets:
             if _bet["result"] is None:
                 _bet["result"] = result
-                _bet["win"] = self.check_win(bet["bet"], result)
+                _bet["win"] = self.check_win(_bet["bet"], result)
                 _bet["earnings"] = _bet["bet"]["payout"] * _bet["amount"] if _bet["win"] else -_bet["amount"]
         # Se limpian los jugadores
         self.current_players = 0
 
 class Casino():
 
-    def __init__(self, average_incidence = 0.25, roulette = 5, time = 8):
+    def __init__(self, average_incidence = 0.25, roulette_no = 5, time = 8):
         self.average_incidence = average_incidence  # cantidad máxima de Gamblers por mesa 
-        self.roulette = roulette # cantidad de ruletas que tiene el casino
+        self.roulette_no = roulette_no # cantidad de ruletas que tiene el casino
         self.time = time #cantidad de horas de simulacion
     # Calculo de siguiente llegada (inverse CDF)
     def next_ts(self, t): # No hace gran cosa, pero existe porque los eventos serán procesos de poisson homogeneos
@@ -87,57 +90,53 @@ class Casino():
 
         # eventos
         prox_llegada = self.next_ts(t) # tiempo de la proxima llegada
-        setTiempo = np.zeros(self.roulette) + np.infty # Se crea tiempos en cero para cada ruleta
-        tiempoOcupado = np.zeros(self.roulette) # Se crea tiempos iniciales que cada ruleta estuvo ocupado
-        rouletteNo = [] # se guardan cuales Gamblers fueron atendidas por cual ruleta
-        roulettees = np.zeros(self.roulette) # para llevar registro de cual está ocupado
-        e = 0
+        spinTiempos = np.zeros(self.roulette_no) + np.infty # Se crea tiempos para cada ruleta
+        tiempoOcupado = np.zeros(self.roulette_no) # Se crea tiempos iniciales que cada ruleta estuvo ocupado
+        roulettees = [Roulette() for _ in range(self.roulette_no)] # Se crea una lista de ruletas
         while t < T: # Mientras no acceda el tiempo de cierre
-            if prox_llegada <= min(setTiempo):
+            if prox_llegada <= min(spinTiempos):
                 # si el proximo tiempo de llegada es antes del proximo tiempo de salida, se encola
                 t = prox_llegada 
                 Na += 1 
                 prox_llegada = self.next_ts(t) # siguiente tiempo de llegada
                 i_llegada.append(t)
-                if n < self.roulette: # si hay menos jugadores dentro que roulette, se le asigna uno que esté disponible
-                    for i in range(self.roulette):
-                        if roulettees[i] == 0: # Verifica disponibilidad en las ruletas
+                if n < self.roulette_no: # si hay menos jugadores dentro que roulette, se le asigna uno que esté disponible
+                    for i in range(self.roulette_no):
+                        if roulettees[i].check_space(): # Verifica disponibilidad en las ruletas
                             player_TE = np.append(player_TE,t - i_llegada[len(i_llegada)-1]) # Tiempo esperado por el jugador
-                            rouletteNo.append(i) # Registro de actividad en ruleta
                             # -------------------------------------------------------------------------------------------------
                             # POTENCIAL COLOCACIÓN DEL JUEGO Y SUS PROBS-------------------------------------------------------
-                            setTiempo[i] = t + np.random.exponential(45)
+                            spinTiempos[i] = t + np.random.exponential(45)
                             # POTENCIAL COLOCACIÓN DEL JUEGO Y SUS PROBS-------------------------------------------------------
                             # -------------------------------------------------------------------------------------------------
-                            tiempoOcupado[i] += setTiempo[i]-t 
-                            roulettees[i] = 1 
+                            tiempoOcupado[i] += spinTiempos[i]-t 
+                            roulettees[i].add_player_and_bet(n, t)
                             break;
                 n += 1 # Se agrega al nuevo player en el sistema
             
             else:
-                # si el proximo tiempo de llegada es después del próximo tiempo de salida, se atiende 
-                roulettePED = np.argmin(setTiempo) # INDICE DE LA RULETA -------------------------------------------
-                t = setTiempo[roulettePED] # EXTRACCIÓN DE TIEMPO DE SALIDA-----------------------------------------
+                # si el proximo tiempo de llegada es después del próximo tiempo de salida, se atiende
+                roulettePED = np.argmin(spinTiempos) # INDICE DE LA RULETA -------------------------------------------
+                t = spinTiempos[roulettePED] # EXTRACCIÓN DE TIEMPO DE SALIDA-----------------------------------------
                 i_salida.append(t) # Adhesion del registro de salida
-                if n <= self.roulette: # Si hay menos o igual cantidad de jugadores que roulette
-                    roulettees[roulettePED] = 0 # Coloca disponible la ruleta
-                    setTiempo[roulettePED] = np.infty # Agrega un valor infimo al tiempo de salida
-                else: # Hay mas jugadores por atender
-                    rouletteNo.append(roulettePED) # Deja registro de la actividad de las ruletas
+                roulettees[roulettePED].spin() # Se gira la ruleta
+                # al girar la ruleta, limpia sus jugadores y se calculan los resultados de las apuestas
+                spinTiempos[roulettePED] = np.infty # Agrega un valor infinito al tiempo de salida
+                if n : # Hay mas jugadores por atender
                     player_TE = np.append(player_TE,t - i_llegada[len(i_llegada)-1]) # Calculo de tiempo por ruleta
                     
                     # -------------------------------------------------------------------------------------------------
                     # POTENCIAL COLOCACIÓN DEL JUEGO Y SUS PROBS-------------------------------------------------------
-                    setTiempo[i] = t + np.random.exponential(45) 
+                    spinTiempos[i] = t + np.random.exponential(45) 
                     # POTENCIAL COLOCACIÓN DEL JUEGO Y SUS PROBS-------------------------------------------------------
                     # -------------------------------------------------------------------------------------------------
 
-                    tiempoOcupado[roulettePED] += setTiempo[roulettePED]-t
-                    roulettees[i] = 1 
+                    tiempoOcupado[roulettePED] += spinTiempos[roulettePED]-t
+                    roulettees[i].add_player_and_bet(n, t)
                 n -= 1 # Descontamos al player atendido del sistema
         
         minimal_arr = min(
-            len(rouletteNo),
+            len(roulettees),
             len(i_llegada),
             len(i_salida)
                     )
@@ -146,7 +145,7 @@ class Casino():
         # Una vez se tengan los datos de las rondas, dinero, % de winrate, saldo final, Rojos, Verdes y Negras
         # Se colocaran aqui. SE RECOMIENDA METERLOS EN UN ARRAY
         df = pd.DataFrame({
-            'roulette_N':rouletteNo[0:minimal_arr],
+            'roulette_N':roulettees[0:minimal_arr],
             'arriving':i_llegada[0:minimal_arr],
             'leaving':i_salida[0:minimal_arr]
         })
@@ -158,13 +157,14 @@ class Casino():
 
         # se calcula cuantas Gamblers atendio cada ruleta 
         numGamblers = np.zeros(self.roulette)
-        for i in range(len(rouletteNo)):
-            numGamblers[rouletteNo[i]] += 1
+        for roulette, index in zip(roulettees, range(self.roulette)):
+            gamblersSet = set([bet["player_no"] for bet in roulette.bets])
+            numGamblers[index] = len(gamblersSet)
 
         return { 
             "en_cola": player_TE,
             "numGamblers": numGamblers, 
-            "setTiempo": setTiempo, 
+            "setTiempo": spinTiempos, 
             "i_llegada": i_llegada, 
             "i_salida": i_salida, 
             "tiempoOcupado": tiempoOcupado
