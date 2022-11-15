@@ -6,6 +6,8 @@ from colorama import Fore, Style
 import json
 import random
 
+random.seed(12345678)
+
 CELLS = json.load(open('rouletteCells.json'))["cells"]
 BETS = json.load(open('bets.json'))["bets"]
 
