@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import plotly.express as px
+# import plotly.express as px
 from matplotlib import pyplot as plt
 from colorama import Fore, Style
 import json
@@ -248,9 +248,10 @@ def show_results(FdS):
 
 def show_mult_results(FdSs):
     # comparacion jugadores en cola
-    clients_queue = [np.round(np.mean(result["en_cola"]),5) for result in FdSs]
-    figure = px.bar(x=clients_queue, y=[f"{results['roulette']} roulette y {results['max_sol']} max_sol" for results in FdSs] , title="Tiempos promedio de jugadores en cola para cada simulación")
-    figure.show()
+    # clients_queue = [np.round(np.mean(result["en_cola"]),5) for result in FdSs]
+    # figure = px.bar(x=clients_queue, y=[f"{results['roulette']} roulette y {results['max_sol']} max_sol" for results in FdSs] , title="Tiempos promedio de jugadores en cola para cada simulación")
+    # figure.show()
+    return
 
 def main():
     # Abre el casino Gamba Sureña
