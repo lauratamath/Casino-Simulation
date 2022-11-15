@@ -18,16 +18,49 @@ class Roulette():
         self.max_players = max_players
         self.current_players = []
 
+    def get_value_between_by_percentage(self, percentage):
+        return self.min_bet + (self.max_bet - self.min_bet) * percentage
+
+    def decide_bet(self):
+        rand_percentage = random.random() * 100
+        bet = None
+        amount = None
+        if rand_percentage <= 2.7:
+            bet = np.random.choice([bet for bet in BETS if bet["type"] == "pleno"])
+            low, high = int(self.min_bet), int(self.get_value_between_by_percentage(0.027))
+            amount = np.random.randint(low, high)
+        elif 2.7 < rand_percentage <= (2.7 + 5.4):
+            bet = np.random.choice([bet for bet in BETS if bet["type"] == "caballo"])
+            low, high = int(self.get_value_between_by_percentage(0.027)), int(self.get_value_between_by_percentage(0.054))
+            amount = np.random.randint(low, high)
+        elif (2.7 + 5.4) < rand_percentage <= (2.7 + 5.4 + 8.1):
+            bet = np.random.choice([bet for bet in BETS if bet["type"] == "trio"])
+            low, high = int(self.get_value_between_by_percentage(0.054)), int(self.get_value_between_by_percentage(0.081))
+            amount = np.random.randint(low, high)
+        elif (2.7 + 5.4 + 8.1) < rand_percentage <= (2.7 + 5.4 + 8.1 + 10.8):
+            bet = np.random.choice([bet for bet in BETS if bet["type"] == "cuadro"])
+            low, high = int(self.get_value_between_by_percentage(0.081)), int(self.get_value_between_by_percentage(0.108))
+            amount = np.random.randint(low, high)
+        elif (2.7 + 5.4 + 8.1 + 10.8) < rand_percentage <= (2.7 + 5.4 + 8.1 + 10.8 + 32.4):
+            bet = np.random.choice([bet for bet in BETS if bet["type"] == "columna"])
+            low, high = int(self.get_value_between_by_percentage(0.324)), int(int(self.get_value_between_by_percentage(0.486)))
+            amount = np.random.randint(low, high)
+        elif rand_percentage > (2.7 + 5.4 + 8.1 + 10.8 + 32.4):
+            bet = np.random.choice([bet for bet in BETS if bet["type"] == "sencilla"])
+            low, high = int(self.get_value_between_by_percentage(0.486)), int(self.max_bet)
+            amount = np.random.randint(low, high)
+        return amount, bet
+
     # Como un jugador decide su apuesta, monto y tipo
-    # TODO: investigar / usar la probabilidad de cada tipo de apuesta
     def set_bet(self, player_no, arriving_time, wait_time = 0):
+        bet_amount, bet_type = self.decide_bet()
         bet = {
             "player_no": player_no,
             "roulette_no": self.roulette_no,
             "bet_time": arriving_time,
             "wait_time": wait_time,
-            "amount": np.random.randint(self.min_bet, self.max_bet),
-            "bet": np.random.choice(BETS),
+            "amount": bet_amount,
+            "bet": bet_type,
             "result": None,
             "win": None,
             "earnings": None
